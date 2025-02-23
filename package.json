@@ -19,7 +19,7 @@
     "update:i": "ncu --interactive",
     "build": "tsc",
     "postbuild": "npm run copylocales",
-    "copylocales": "cp -r src/locales dist/",
+    "copylocales": "copy -r src/locales dist/",
     "clean:api": "rm -rf src/lib/firefly/api",
     "clean:model": "ls ./src/lib/firefly/model/ | grep -v currency-update.ts | xargs -I {} rm ./src/lib/firefly/model/{}",
     "precodegen": "npm run clean:api && npm run clean:model",
@@ -55,6 +55,7 @@
     "mathjs": "11.5.0",
     "node-fetch": "3.3.0",
     "node-json-db": "2.1.4",
+    "openai": "4.85.4",
     "table": "6.8.1"
   }
 }

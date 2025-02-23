@@ -23,9 +23,10 @@ labels:
   OPEN_ASSET_ACCOUNTS_IN_BROWSER: 🔗 Ver cuentas de Activos
   DONE: ✅ OK
   EDIT_TRANSACTION: ✏️ Editar
-  FIREFLY_ACCESS_TOKEN_BUTTON: 🔑 Token de Acceso
+  FIREFLY_ACCESS_TOKEN_BUTTON: 🔑 Token de Acceso a Firefly
   FIREFLY_URL_BUTTON: 🔗 URL de Firefly
-  FIREFLY_API_URL_BUTTON: 🔗 URL de la API Firefly											  
+  FIREFLY_API_URL_BUTTON: 🔗 URL de la API Firefly
+  OPENAI_API_KEY_BUTTON: 🔑 API Key de OpenAI
   LIST_TAGS: 🏷️  Etiqueta
   RENAME_CATEGORY: ✏️ Renombrar
   REPORTS: 📈 Reportes
@@ -93,9 +94,13 @@ settings:
     Normalmente, es la misma URL de tu instancia Firefly III pero con un */api* al final, ejemplo:
     *https://firefly.example.com/api* o así: *http://localhost:8080/api*
   inputFireflyAccessToken: >
-    Pega el testo de tu Token de Acceso
+    Pega el texto de tu Token de Acceso
     Puedes crearlo y copiarlo de la interfaz web de Firefly III
     *Opciones → Perfil →  OAuth → Crear nuevo token*
+  inputOpenAiApiKey: >
+    Pega el texto de tu Api Key de OpenAI
+    Puedes crearlo desde la web de https://platform.openai.com/
+    *Organizaciones → API Keys →  New*
   defaultAssetAccountSet: La cuenta de Activo por defecto ha sido configurada!
   whatDoYouWantToChange: >
     🔧 *Configuración*  
@@ -107,6 +112,8 @@ settings:
     *🔗 URL de Firefly API*: ${fireflyApiUrl || '🚨 <NO ESPECIFICADO>'}
 
     *🔑 Token de Acceso*: ${accessToken || '🚨 <NO ESPECIFICADO>'}
+
+    *🔑 Token OpenAI*: ${apiKey || '🚨 <NO ESPECIFICADO>'}
 
     *💳 Cuenta de Activo por defecto*: ${defaultSourceAccount.name || '🚨 <NO ESPECIFICADO>'}
   selectDefaultAssetAccount: >
