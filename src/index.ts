@@ -13,6 +13,7 @@ import { createMainKeyboard, generateWelcomeMessage } from './composers/helpers'
 
 import settings from './composers/settings'
 import addTransaction, { addTransaction as textHandler } from './composers/transactions/add-transaction'
+import addTransactionByImage, { addTransactionByImage as imageHandler } from './composers/transactions/add-transaction-by-image'
 import editTransaction from './composers/transactions/edit-transaction'
 import listTransactions from './composers/transactions/list-transactions'
 import accounts from './composers/accounts'
@@ -46,6 +47,7 @@ bot.use(i18n.middleware());
 bot.use(requireSettings())
 bot.use(cleanup())
 bot.use(addTransaction)
+bot.use(addTransactionByImage)
 bot.use(editTransaction)
 bot.use(listTransactions)
 bot.use(accounts)
@@ -56,6 +58,7 @@ bot.use(reports)
 bot.command(command.START, startHandler)
 bot.command(command.HELP, helpHandler)
 bot.on('message:text', textHandler)
+bot.on('message:photo', imageHandler)
 
 bot.start()
 bot.catch(errorHandler)

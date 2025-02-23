@@ -207,6 +207,18 @@ transactions:
       Ingresa un importe para la transacción, debe ser un número! 😉
         
       O, puedes ingresar la description e importe de la transacción, ejemplo, `Comida 25`
+    notFoundImage: >
+      🤖 No he detectado una imagen válida.
+        
+      intentalo nuevamente, debe ser una imagen! 😉
+        
+      O, puedes ingresar la description e importe de la transacción, ejemplo, `Comida 25`
+    dontUnderstandImage: >
+      🤖 No entendí la imagen que enviaste.
+        
+      intentalo nuevamente, debe ser una imagen! 😉
+        
+      O, puedes ingresar la description e importe de la transacción, ejemplo, `Comida 25`
     withdrawalMessage: >
       📆 ${date}  
         
