@@ -17,7 +17,8 @@ import { cleanupSessionData, createMainKeyboard, generateWelcomeMessage } from '
 export enum Route {
   FIREFLY_URL = 'SETTINGS|FIREFLY_URL',
   FIREFLY_API_URL = 'SETTINGS|FIREFLY_API_URL',
-  FIREFLY_ACCESS_TOKEN = 'SETTINGS|FIREFLY_ACCESS_TOKEN'
+  FIREFLY_ACCESS_TOKEN = 'SETTINGS|FIREFLY_ACCESS_TOKEN',
+  OPENAI_API_KEY = 'SETTINGS|OPENAI_API_KEY'
 }
 
 const rootLog = debug(`bot:settings`)
@@ -34,6 +35,7 @@ const settingsMenu = new Menu<MyContext>('settings')
   .text(ctx => ctx.i18n.t('labels.FIREFLY_URL_BUTTON'), inputFireflyUrlCbQH).row()
   .text(ctx => ctx.i18n.t('labels.FIREFLY_API_URL_BUTTON'), inputFireflyApiUrlCbQH).row()
   .text(ctx => ctx.i18n.t('labels.FIREFLY_ACCESS_TOKEN_BUTTON'), inputFireflyAccessTokenCbQH).row()
+  .text(ctx => ctx.i18n.t('labels.OPENAI_API_KEY_BUTTON'), inputOpenAiApiKey).row()
   // Render test connection and default account buttons only if Firefly URL and
   // Access token are set
   .dynamic(async ctx => {
@@ -161,6 +163,7 @@ router.route('IDLE', (_, next) => next())
 router.route(Route.FIREFLY_URL, fireflyUrlRouteHandler)
 router.route(Route.FIREFLY_API_URL, fireflyApiUrlRouteHandler)
 router.route(Route.FIREFLY_ACCESS_TOKEN, fireflyAccessTokenRouteHandler)
+router.route(Route.OPENAI_API_KEY, openAiApiKeyRouteHandler)
 bot.use(router)
 
 export default bot
@@ -170,16 +173,19 @@ function settingsText(ctx: MyContext) {
     fireflyUrl,
     fireflyApiUrl,
     fireflyAccessToken,
+    openAiApiKey,
     defaultSourceAccount,
   } = ctx.session.userSettings
 
   // Grab only first 4 and last 4 chars of the token
   const accessToken = fireflyAccessToken?.replace(/(.{4})(.*?)(.{4})$/, '$1...$3')
+  const apiKey = openAiApiKey?.replace(/(.{4})(.*?)(.{4})$/, '$1...$3')
 
   return ctx.i18n.t('settings.whatDoYouWantToChange', {
     fireflyUrl,
     fireflyApiUrl,
     accessToken,
+    apiKey,
     defaultSourceAccount,
   })
 }
@@ -218,6 +224,38 @@ async function fireflyAccessTokenRouteHandler(ctx: MyContext) {
     }
 
     ctx.session.userSettings.fireflyAccessToken = text
+    ctx.session.step = 'IDLE'
+
+    return ctx.reply(
+      settingsText(ctx),
+      {
+        parse_mode: 'Markdown',
+        reply_markup: settingsMenu
+      }
+    )
+  } catch (err: any) {
+    return handleCallbackQueryError(err, ctx)
+  }
+}
+
+async function openAiApiKeyRouteHandler(ctx: MyContext) {
+  const log = rootLog.extend('openAiApiKeyRouteHandler')
+  log('Entered openAiApiKeyRouteHandler...')
+  try {
+    log('ctx.msg: %O', ctx.msg)
+    const text = ctx.msg!.text as string
+    log('User entered text: %s', text)
+    log('ctx.session: %O', ctx.session)
+    log('text.length: %O', text.length)
+
+    // texto menor a 50 o no inicia con sk-proj
+    if (text.length < 50 && text.indexOf('sk-proj') !== 0) {
+      return ctx.reply(ctx.i18n.t('settings.badAccessToken'), {
+        reply_markup: cancelMenu
+      })
+    }
+
+    ctx.session.userSettings.openAiApiKey = text
     ctx.session.step = 'IDLE'
 
     return ctx.reply(
@@ -341,6 +379,21 @@ async function inputFireflyAccessTokenCbQH(ctx: MyContext) {
   try {
     ctx.session.step = Route.FIREFLY_ACCESS_TOKEN
     return ctx.editMessageText(ctx.i18n.t('settings.inputFireflyAccessToken'), {
+      parse_mode: 'Markdown',
+      reply_markup: cancelMenu
+    })
+  } catch (err: any) {
+    cleanupSessionData(ctx)
+    return handleCallbackQueryError(err, ctx)
+  }
+}
+
+async function inputOpenAiApiKey(ctx: MyContext) {
+  const log = rootLog.extend('inputOpenAiApiKey')
+  log(`Entered the inputOpenAiApiKey action handler`)
+  try {
+    ctx.session.step = Route.OPENAI_API_KEY
+    return ctx.editMessageText(ctx.i18n.t('settings.inputOpenAiApiKey'), {
       parse_mode: 'Markdown',
       reply_markup: cancelMenu
     })

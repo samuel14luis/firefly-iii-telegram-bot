@@ -18,6 +18,7 @@ export interface SessionData {
     fireflyUrl: string
     fireflyApiUrl: string
     fireflyAccessToken: string
+    openAiApiKey: string
     defaultSourceAccount: { id: string, type: string, name: string }
     defaultDestinationAccount: { id: string, type: string, name: string }
     language: string
@@ -61,6 +62,7 @@ export function createInitialSessionData() {
       fireflyUrl: config.fireflyUrl || '',
       fireflyApiUrl: config.fireflyApiUrl || '',
       fireflyAccessToken: '',
+      openAiApiKey: config.openAiApiKey || '',
       defaultSourceAccount: { id: '', type: '', name: '' },
       defaultDestinationAccount: { id: '', type: '', name: '' },
       language: 'en'
