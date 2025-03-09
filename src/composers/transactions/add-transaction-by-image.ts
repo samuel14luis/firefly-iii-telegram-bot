@@ -22,6 +22,9 @@ import { AccountAttributes } from '../../types/SessionData'
 import { CATEGORIES_PAGE_LIMIT, ACCOUNTS_PAGE_LIMIT } from '../constants'
 import { handleCallbackQueryError } from '../../lib/errorHandler'
 import config from '../../config'
+import openai from '../../lib/openai'
+import { ChatCompletion } from 'openai/resources'
+import { ReceiptData } from './model/receipt-data'
 
 export enum Route {
   SET_FOREIGN_AMOUNT = 'NEW_TRANSACTION|FOREIGN_AMOUNT',
@@ -43,9 +46,7 @@ export default bot
 export async function addTransactionByImage(ctx: MyContext) {
   const log = rootLog.extend('addTransactionByImage')
   log('Entered image handler')
-  try {
-    const text = ctx.message!.text as string
-  
+  try {  
     if (!(ctx.message && ctx.message.photo)) {
       log('No photo... Replying with instruction')
       await ctx.reply(ctx.i18n.t('transactions.add.notFoundImage'), {
@@ -69,8 +70,45 @@ export async function addTransactionByImage(ctx: MyContext) {
     }
 
     const buffer: ArrayBuffer = await getBufferFromPhoto(log, file.file_path);
-    
+    const openaiResponse: string = await getTransactionFromPhoto(log, file.file_path);
+    const transactionDetail: ReceiptData | null = parseOpenAiResponse(openaiResponse);
+
+    if (!transactionDetail) {
+      log('No transaction detail... Replying with instruction')
+      await ctx.reply(ctx.i18n.t('transactions.add.cantExtractImageData'), {
+        parse_mode: 'Markdown',
+      })
+      return 
+    }
+
+    transactionDetail.imageName = `${transactionDetail.date.replace("/", ".").replace("/", ".")}-${transactionDetail.receipt}-TARJ${transactionDetail.card}.png`;
+    transactionDetail.notes = `${transactionDetail.notes}
+
+BOLETA ELECTRONICA ${transactionDetail.imageName}
+
+${transactionDetail.hour}`;
+
+    log('transactionDetail: %O', transactionDetail)
+    await ctx.reply(ctx.i18n.t('transactions.add.extractedData', {
+      receipt: transactionDetail.receipt,
+      date: transactionDetail.date,
+      hour: transactionDetail.hour,
+      amount: transactionDetail.amount,
+      currency: transactionDetail.currency,
+      card: transactionDetail.card,
+      description: transactionDetail.description,
+      notes: transactionDetail.notes,
+    }), {
+      parse_mode: 'Markdown',
+    })
+
+
     const { userSettings } = ctx.session
+    log('ctx.user.settings: %O', userSettings)
+
+    // INICIO REMOVE
+    //const text = ctx.message!.text as string
+    const text = `${transactionDetail.description} ${transactionDetail.amount}`
     log('ctx.message.text: %O', text)
 
     const validInput = /^(?<amountOnly>\d{1,}(?:[.,]\d+)?([-+/*^]\d{1,}(?:[.,]\d+)?)*)*$|(?<description>.+)\s(?<amount>\d{1,}(?:[.,]\d+)?([-+/*^]\d{1,}(?:[.,]\d+)?)*)$/
@@ -95,6 +133,8 @@ export async function addTransactionByImage(ctx: MyContext) {
         parse_mode: 'Markdown',
       })
     }
+
+    // FIN REMOVE
 
     const defaultSourceAccount = await getDefaultSourceAccount(ctx)
     log('defaultSourceAccount: %O', defaultSourceAccount)
@@ -124,7 +164,7 @@ export async function addTransactionByImage(ctx: MyContext) {
       const tr = await createQuickTransaction({
         ctx,
         // Telegram message date is a Unix timestamp (10 digits, seconds since the Unix Epoch)
-        date: (ctx.message?.date ? dayjs.unix(ctx.message.date) : dayjs()).toISOString(),
+        date: transactionDetail.isoDate ? transactionDetail.isoDate : dayjs().toISOString(),
         amount,
         description,
         sourceAccountId: defaultSourceAccount.id.toString(),
@@ -323,3 +363,28 @@ async function getBufferFromPhoto(log: debug.Debugger, filePath: string): Promis
   return buffer;
 }
 
+async function getTransactionFromPhoto(log: debug.Debugger, filePath: string): Promise<string> {
+
+  const fileUrl = `https://api.telegram.org/file/bot${config.botToken}/${filePath}`;
+
+  const response: ChatCompletion.Choice[] = await openai(config, fileUrl);
+  const result = response[0].message.content ?? '';
+  log('openai result: %O', result)
+
+  return result;
+}
+
+function parseOpenAiResponse(response: string): ReceiptData | null {
+  try {
+    // Eliminar las comillas invertidas y la etiqueta "json"
+    const cleanedText = response.replace(/```json\n?/, "").replace(/```$/, "").trim();
+
+    // Parsear la cadena JSON a un objeto TypeScript
+    const parsedData: ReceiptData = JSON.parse(cleanedText);
+
+    return parsedData;
+  } catch (error) {
+    console.error("❌ Error al parsear la respuesta de OpenAI:", error);
+    return null;
+  }
+}
