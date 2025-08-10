@@ -49,6 +49,7 @@
     "dayjs": "1.11.7",
     "debug": "4.3.4",
     "dotenv": "16.0.3",
+    "googleapis": "146.0.0",
     "grammy": "1.19.0",
     "lodash.curry": "4.1.1",
     "lodash.flatten": "4.4.0",

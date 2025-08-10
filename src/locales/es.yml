@@ -242,6 +242,9 @@ transactions:
 
       Notas: ${notes}
       
+    uploadImageMessage: >
+      🤖 Detalle del proceso de subir la imagen: ${message}
+      
     withdrawalMessage: >
       📆 ${date}  
         

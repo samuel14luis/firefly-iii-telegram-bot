@@ -1,6 +1,8 @@
 import dayjs from 'dayjs'
 import debug from 'debug'
 import { Composer, InlineKeyboard } from 'grammy'
+import { google } from 'googleapis';
+import { Readable } from 'stream';
 import { Router } from "@grammyjs/router"
 
 import type { MyContext } from '../../types/MyContext'
@@ -25,6 +27,7 @@ import config from '../../config'
 import openai from '../../lib/openai'
 import { ChatCompletion } from 'openai/resources'
 import { ReceiptData } from './model/receipt-data'
+import { UploadResponse } from './model/upload-response';
 
 export enum Route {
   SET_FOREIGN_AMOUNT = 'NEW_TRANSACTION|FOREIGN_AMOUNT',
@@ -69,7 +72,6 @@ export async function addTransactionByImage(ctx: MyContext) {
       return 
     }
 
-    const buffer: ArrayBuffer = await getBufferFromPhoto(log, file.file_path);
     const openaiResponse: string = await getTransactionFromPhoto(log, file.file_path);
     const transactionDetail: ReceiptData | null = parseOpenAiResponse(openaiResponse);
 
@@ -106,7 +108,7 @@ ${transactionDetail.hour}`;
     const { userSettings } = ctx.session
     log('ctx.user.settings: %O', userSettings)
 
-    // INICIO REMOVE
+    // START TEXT HANDLER
     //const text = ctx.message!.text as string
     const text = `${transactionDetail.description} ${transactionDetail.amount}`
     log('ctx.message.text: %O', text)
@@ -134,7 +136,19 @@ ${transactionDetail.hour}`;
       })
     }
 
-    // FIN REMOVE
+    // END TEXT HANDLER
+
+    // UPLOAD IMAGE TO GOOGLE DRIVE
+    const buffer: ArrayBuffer = await getBufferFromPhoto(log, file.file_path);
+    const uploadPhotoResponse: UploadResponse = await createAndUploadFile(transactionDetail.imageName, buffer);
+    log('uploadPhotoResponse: %O', uploadPhotoResponse)
+    if (uploadPhotoResponse) {
+      await ctx.reply(ctx.i18n.t('transactions.add.uploadImageMessage', {
+        message: uploadPhotoResponse.message
+      }), {
+        parse_mode: 'HTML',
+      })
+    }
 
     const defaultSourceAccount = await getDefaultSourceAccount(ctx)
     log('defaultSourceAccount: %O', defaultSourceAccount)
@@ -387,4 +401,87 @@ function parseOpenAiResponse(response: string): ReceiptData | null {
     console.error("❌ Error al parsear la respuesta de OpenAI:", error);
     return null;
   }
+}
+
+async function createAndUploadFile(fileName: string, bufferFile: ArrayBuffer): Promise<UploadResponse> {
+
+  //Constants
+  const drivePublicUrl = "https://drive.google.com/file/d/{{file-id}}/view?usp=drive_link";
+  const SCOPES = ['https://www.googleapis.com/auth/drive'];
+  const KEY_FILE_PATH = {
+    "type": "service_account",
+    "project_id": "htld-firefly-upload-images",
+    "private_key_id": "",
+    "private_key": "",
+    "client_email": "",
+    "client_id": "",
+    "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+    "token_uri": "https://oauth2.googleapis.com/token",
+    "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+    "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/fireflytelegrambot%40htld-firefly-upload-images.iam.gserviceaccount.com",
+    "universe_domain": "googleapis.com"
+  };
+  const PARENTS = {
+    "subir-boleta": ["1KsBOlzKlcD1x171SUK5iNXe9oTzC1jgS"],
+    "subir-plin": ["1y-OUKVE1fm32FRdzE9q-58t2yv8V8guW"]
+  };
+  const parentId = "subir-boleta";
+
+  // Create OAuth2 client
+  const auth = new google.auth.GoogleAuth({
+    credentials: KEY_FILE_PATH,
+    scopes: SCOPES,
+  });
+
+  try {
+
+    const driveService = google.drive({ version: 'v3', auth });
+
+    let fileMetadata = {
+      'name': `${fileName}`,
+      'parents': PARENTS[parentId]
+    };
+
+    // Convertir ArrayBuffer a Buffer
+    const buffer = Buffer.from(bufferFile);
+
+    let media = {
+      mimeType: 'image/png',
+      body: Readable.from(buffer)
+    }
+
+    let response = await driveService.files.create({
+      requestBody: fileMetadata,
+      media: media,
+      fields: 'id'
+    });
+    return { 
+      success: true, 
+      message: "Archivo subido. Puedes verlo en " + drivePublicUrl.replace("{{file-id}}", response.data.id ?? "ID_NO_DISPONIBLE") ,
+      fileUri: drivePublicUrl.replace("{{file-id}}", response.data.id ?? "ID_NO_DISPONIBLE")      
+    };
+  } catch (error) {
+    console.log(error);
+    return { success: false, message: "Error al subir archivo.", fileUri: "" };
+  }
+}
+
+function markdownParser(text :string) {
+  //const caracteresEspeciales = ['`', '*', '_', '{', '}', '[', ']', '(', ')', '#', '+', '-', '.', '!'];
+  return text
+  .replace(/`/g, '\\`')
+  .replace(/\*/g, '\\*')
+  .replace(/_/g, '\\_')
+  .replace(/\{/g, '\\{')
+  .replace(/\}/g, '\\}')
+  .replace(/\[/g, '\\[')
+  .replace(/\]/g, '\\]')
+  .replace(/\(/g, '\\(')
+  .replace(/\)/g, '\\)')
+  .replace(/~/g, '\\~')
+  .replace(/#/g, '\\#')
+  .replace(/\+/g, '\\+')
+  .replace(/-/g, '\\-')
+  //.replace(/\./g, '\\.')
+  .replace(/!/g, '\\!');
 }
